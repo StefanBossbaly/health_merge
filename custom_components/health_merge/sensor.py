@@ -2,17 +2,29 @@
 import logging
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import homeassistant.helpers.config_validation as cv
-import voluptuous as vol
 from homeassistant.components.sensor import ENTITY_ID_FORMAT, PLATFORM_SCHEMA
-from homeassistant.const import (ATTR_FRIENDLY_NAME, CONF_PLATFORM,
-                                 CONF_SENSORS, STATE_UNKNOWN)
+from homeassistant.const import (
+    ATTR_FRIENDLY_NAME,
+    CONF_PLATFORM,
+    CONF_SENSORS,
+    STATE_UNKNOWN,
+)
 from homeassistant.core import HomeAssistant, State, callback
+import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
+import voluptuous as vol
 
-from .const import (ATTR_STATUS, CONF_HEALTH_SENSORS, DOMAIN, PLATFORMS,
-                    STATE_BAD, STATE_CRITICAL, STATE_WARN, STATE_GOOD)
+from .const import (
+    ATTR_STATUS,
+    CONF_HEALTH_SENSORS,
+    DOMAIN,
+    PLATFORMS,
+    STATE_BAD,
+    STATE_CRITICAL,
+    STATE_GOOD,
+    STATE_WARN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,6 +84,8 @@ class HealthMerge(Entity):
         self._state = None
         self._async_unsub_state_changed = None
 
+        self._attr_status = None
+
     async def async_added_to_hass(self) -> None:
         """Register callbacks."""
 
@@ -113,6 +127,16 @@ class HealthMerge(Entity):
         """Disable polling for group."""
         return False
 
+    @property
+    def device_state_attributes(self) -> Dict[str, str]:
+        """Return the state attributes."""
+        attrs = {}
+
+        if self._attr_status is not None:
+            attrs[ATTR_STATUS] = self._attr_status
+
+        return attrs
+
     async def async_update(self):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
@@ -129,4 +153,11 @@ class HealthMerge(Entity):
                 self._available = True
                 self._state = health_state
 
-                break
+                if len(status_attributes) > 0:
+                    self._attr_status = "\n".join(status_attributes)
+                else:
+                    self._attr_status = None
+
+                return
+        
+        self._available = True
