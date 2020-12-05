@@ -8,18 +8,19 @@ from homeassistant.const import (
     CONF_PLATFORM,
     CONF_SENSORS,
     STATE_UNKNOWN,
+    STATE_UNAVAILABLE,
 )
 from homeassistant.core import HomeAssistant, State, callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.typing import ConfigType, HomeAssistantType
 import voluptuous as vol
 
 from .const import (
     ATTR_STATUS,
+    ATTR_STATUS_NO_PROBLEM_VAL,
     CONF_HEALTH_SENSORS,
-    DOMAIN,
-    PLATFORMS,
     STATE_BAD,
     STATE_CRITICAL,
     STATE_GOOD,
@@ -46,8 +47,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 )
 
 async def async_setup_platform(
-    hass: HomeAssistant,
-    config: Dict[str, Union[str, bool]],
+    hass: HomeAssistantType,
+    config: ConfigType,
     async_add_entities: Callable, 
     discovery_info=None
 ) -> None:
@@ -59,10 +60,10 @@ async def async_setup_platform(
         sensors = device_config[CONF_HEALTH_SENSORS]
         friendly_name = device_config.get(ATTR_FRIENDLY_NAME, device)
 
-        _LOGGER.info(f"Added health_merge sensor: {device}: {device_config}")
+        _LOGGER.debug(f"Added health_merge sensor: {device}: {device_config}")
 
         health_sensors.append(
-            HealthMerge(
+            HealthMergeSensor(
                 device,
                 friendly_name,
                 sensors
@@ -72,7 +73,14 @@ async def async_setup_platform(
     async_add_entities(health_sensors)
 
 
-class HealthMerge(Entity):
+def _find_state_attributes(states: List[State], key: str) -> Iterator[str]:
+    """Find attributes with matching key from states."""
+    for state in states:
+        value = state.attributes.get(key)
+        if value is not None:
+            yield value
+
+class HealthMergeSensor(Entity):
     """Representation of a Sensor."""
 
     def __init__(self, device_id: str, friendly_name: str, sensor_ids: List[str]) -> None:
@@ -128,7 +136,7 @@ class HealthMerge(Entity):
         return False
 
     @property
-    def device_state_attributes(self) -> Dict[str, str]:
+    def device_state_attributes(self) -> Dict[str, Any]:
         """Return the state attributes."""
         attrs = {}
 
@@ -143,21 +151,25 @@ class HealthMerge(Entity):
         """
         raw_states = [self.hass.states.get(sensor_id) for sensor_id in self._sensor_ids]
         states = list(filter(None, raw_states))
-        all_healths = [state.state for state in states]
 
-        for health_state in (STATE_CRITICAL, STATE_BAD, STATE_WARN, STATE_GOOD):
+        # Set available
+        self._available = any(state.state != STATE_UNAVAILABLE for state in states)
+
+        # Check to see if there are any bad healths
+        for health_state in (STATE_CRITICAL, STATE_BAD, STATE_WARN):
             if health_state in all_healths:
-                raw_status_attributes = [state.attributes.get(ATTR_STATUS, None) for state in states if state.state == health_state]
-                status_attributes = list(filter(None, raw_status_attributes))
-                
-                self._available = True
                 self._state = health_state
 
-                if len(status_attributes) > 0:
+                status_attributes = list(_find_state_attributes(states, ATTR_STATUS))
+                
+                if status_attributes:
                     self._attr_status = "\n".join(status_attributes)
                 else:
                     self._attr_status = None
 
+                # We found the state, no need
                 return
         
-        self._available = True
+        # No error states were detected
+        self._state = STATE_GOOD
+        self._attr_status = ATTR_STATUS_NO_PROBLEM_VAL

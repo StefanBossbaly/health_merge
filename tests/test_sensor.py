@@ -1,7 +1,7 @@
 """Tests for the sensor module."""
 from pytest_homeassistant_custom_component.async_mock import AsyncMock, MagicMock
 
-# from custom_components.health_merge.sensor import HealthMerge
+# from custom_components.health_merge.sensor import HealthMergeSensor
 
 
 async def test_async_update_success(hass, aioclient_mock):
