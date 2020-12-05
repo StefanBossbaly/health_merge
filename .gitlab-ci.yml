@@ -1,0 +1,37 @@
+image: "python:3.9"
+
+before_script:
+  - python --version
+  - python -m pip install --upgrade pip
+  - pip install -r requirements.test.txt
+
+stages:
+  - Static Analysis
+  - Test
+
+mypy:
+  stage: Static Analysis
+  script:
+  - pwd
+  - ls -l
+  - mypy --pretty --show-error-codes --show-error-context .
+
+flake8:
+  stage: Static Analysis
+  script:
+  - flake8
+
+#pylint:
+#  stage: Static Analysis
+#  allow_failure: true
+#  script:
+#  - pylint -d C0301 bild/*.py
+
+unit_test:
+  stage: Test
+  script:
+  - pwd
+  - ls -l
+  - export PYTHONPATH="$PYTHONPATH:."
+  - python -c "import sys;print(sys.path)"
+  - pytest
