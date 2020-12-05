@@ -87,7 +87,7 @@ class HealthMerge(Entity):
         )
         await self.async_update()
 
-    async def async_will_remove_from_hass(self):
+    async def async_will_remove_from_hass(self) -> None:
         """Handle removal from HASS."""
         if self._async_unsub_state_changed is not None:
             self._async_unsub_state_changed()
@@ -121,20 +121,12 @@ class HealthMerge(Entity):
         states = list(filter(None, raw_states))
         all_healths = [state.state for state in states]
 
-        _LOGGER.info(f"async_update() -> healths: {all_healths}")
+        for health_state in (STATE_CRITICAL, STATE_BAD, STATE_WARN, STATE_GOOD):
+            if health_state in all_healths:
+                raw_status_attributes = [state.attributes.get(ATTR_STATUS, None) for state in states if state.state == health_state]
+                status_attributes = list(filter(None, raw_status_attributes))
+                
+                self._available = True
+                self._state = health_state
 
-        if STATE_CRITICAL in all_healths:
-            self._state = STATE_CRITICAL
-            self._available = True
-        elif STATE_BAD in all_healths:
-            self._state = STATE_BAD
-            self._available = True
-        elif STATE_WARN in all_healths:
-            self._state = STATE_WARN
-            self._available = True
-        elif STATE_GOOD in all_healths:
-            self._state = STATE_GOOD
-            self._available = True
-        else:
-            _LOGGER.error("Unreconized state")
-            self._available = False
+                break
