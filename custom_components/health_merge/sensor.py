@@ -161,7 +161,7 @@ class HealthMergeSensor(Entity):
                 self._state = health_state
 
                 status_attributes = list(_find_state_attributes(health_states, ATTR_STATUS))
-                
+
                 if status_attributes:
                     self._attr_status = "\n".join(status_attributes)
                 else:
