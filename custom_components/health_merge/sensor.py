@@ -1,16 +1,14 @@
 """Platform for sensor integration."""
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Iterator
 
-from homeassistant.components.sensor import ENTITY_ID_FORMAT, PLATFORM_SCHEMA
+from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
-    CONF_PLATFORM,
     CONF_SENSORS,
-    STATE_UNKNOWN,
     STATE_UNAVAILABLE,
 )
-from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.core import State, callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
@@ -69,7 +67,7 @@ async def async_setup_platform(
                 sensors
             )
         )
-    
+
     async_add_entities(health_sensors)
 
 
@@ -150,17 +148,17 @@ class HealthMergeSensor(Entity):
         This is the only method that should fetch new data for Home Assistant.
         """
         raw_states = [self.hass.states.get(sensor_id) for sensor_id in self._sensor_ids]
-        states = list(filter(None, raw_states))
+        health_states = list(filter(None, raw_states))
 
         # Set available
-        self._available = any(state.state != STATE_UNAVAILABLE for state in states)
+        self._available = any(state.state != STATE_UNAVAILABLE for state in health_states)
 
         # Check to see if there are any bad healths
         for health_state in (STATE_CRITICAL, STATE_BAD, STATE_WARN):
-            if health_state in all_healths:
+            if health_state in health_states:
                 self._state = health_state
 
-                status_attributes = list(_find_state_attributes(states, ATTR_STATUS))
+                status_attributes = list(_find_state_attributes(health_states, ATTR_STATUS))
                 
                 if status_attributes:
                     self._attr_status = "\n".join(status_attributes)
