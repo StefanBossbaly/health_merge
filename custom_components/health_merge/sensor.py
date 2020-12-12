@@ -44,10 +44,11 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
+
 async def async_setup_platform(
     hass: HomeAssistantType,
     config: ConfigType,
-    async_add_entities: Callable, 
+    async_add_entities: Callable,
     discovery_info=None
 ) -> None:
     """Set up the health merge sensors."""
@@ -77,6 +78,7 @@ def _find_state_attributes(states: List[State], key: str) -> Iterator[str]:
         value = state.attributes.get(key)
         if value is not None:
             yield value
+
 
 class HealthMergeSensor(Entity):
     """Representation of a Sensor."""
@@ -167,7 +169,7 @@ class HealthMergeSensor(Entity):
 
                 # We found the state, no need
                 return
-        
+
         # No error states were detected
         self._state = STATE_GOOD
         self._attr_status = ATTR_STATUS_NO_PROBLEM_VAL
