@@ -1,13 +1,9 @@
 """Platform for sensor integration."""
 import logging
-from typing import Any, Callable, Dict, List, Optional, Iterator
+from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import (
-    ATTR_FRIENDLY_NAME,
-    CONF_SENSORS,
-    STATE_UNAVAILABLE,
-)
+from homeassistant.const import ATTR_FRIENDLY_NAME, CONF_SENSORS, STATE_UNAVAILABLE
 from homeassistant.core import State, callback
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
@@ -149,25 +145,33 @@ class HealthMergeSensor(Entity):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
-        raw_states = [self.hass.states.get(sensor_id) for sensor_id in self._sensor_ids]
-        health_states = list(filter(None, raw_states))
+        # Get a list of sensors that are valid
+        raw_sensors = [self.hass.states.get(sensor_id) for sensor_id in self._sensor_ids]
+        health_sensors = list(filter(None, raw_sensors))
 
         # Set available
-        self._available = any(state.state != STATE_UNAVAILABLE for state in health_states)
+        self._available = any(health_sensor.state != STATE_UNAVAILABLE for health_sensor in health_sensors)
 
         # Check to see if there are any bad healths
-        for health_state in (STATE_CRITICAL, STATE_BAD, STATE_WARN):
-            if health_state in health_states:
-                self._state = health_state
+        for current_health_state in (STATE_CRITICAL, STATE_BAD, STATE_WARN):
+            # Get a list of health states at the current level
+            current_health_sensors = [health_sensor for health_sensor in health_sensors if health_sensor.state == current_health_state]
 
-                status_attributes = list(_find_state_attributes(health_states, ATTR_STATUS))
+            # See if there are any sensors at this level
+            if current_health_sensors:
+                # Set the health state
+                self._state = current_health_state
 
+                # Find any status at this health status
+                status_attributes = list(_find_state_attributes(current_health_sensors, ATTR_STATUS))
+
+                # Collapse any status attributes at this health state
                 if status_attributes:
                     self._attr_status = "\n".join(status_attributes)
                 else:
                     self._attr_status = None
 
-                # We found the state, no need
+                # We found the state, no need to keep processing
                 return
 
         # No error states were detected
